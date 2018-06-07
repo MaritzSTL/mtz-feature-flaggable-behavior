@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, minimum-scale=1, initial-scale=1, user-scalable=yes">
+
+    <title>mtz-feature-flaggable-behavior test</title>
+
+    <script src="../../webcomponentsjs/webcomponents-loader.js"></script>
+    <script src="../../web-component-tester/browser.js"></script>
+
+    <link rel="import" href="../mtz-feature-flaggable-behavior.html">
+    <link rel="import" href="test-feature-flaggable.html">
+  </head>
+  <body>
+
+    <test-fixture id="basic">
+      <template>
+        <test-feature-flaggable></test-feature-flaggable>
+      </template>
+    </test-fixture>
+
+    <script>
+
+      describe('mtz-feature-flaggable-behavior', () => {
+        let element;
+
+        const validFeatureFlag = {
+          key: "validFeatureFlag",
+          enabled: true
+        };
+        const validFeatureFlagNotEnabled = {
+          key: "validFeatureFlag",
+          enabled: false
+        };
+        const invalidFeatureFlag1 = {
+          // missing key
+          enabled: true
+        };
+        const invalidFeatureFlag2 = {
+          // invalid key
+          key: null,
+          enabled: true
+        };
+        const invalidFeatureFlag3 = {
+          key: "validKey",
+          // missing enabled
+        };
+        const invalidFeatureFlag4 = {
+          key: "validKey",
+          // enabled is not boolean
+          enabled: "isAString"
+        };
+
+        beforeEach(() => {
+          element = fixture('basic');
+          console.error = sinon.spy()
+          console.warn = sinon.spy()
+        });
+
+        afterEach(() => {
+          delete window.mtz.featureFlags;
+        });
+
+        it('will populate featureFlags with window.mtz.featureFlags', () => {
+          window.mtz.featureFlags = [validFeatureFlag];
+          element.attached();
+          expect(element.featureFlags).to.eql([validFeatureFlag])
+        });
+
+        it('will initialize correctly if window.mtz.featureFlags is not set', () => {
+          // window.mtz.featureFlags is deleted in afterEach()
+          expect(() => {
+            element.attached();
+          }).to.not.throw();
+        });
+
+        describe('featureFlagIsEnabled()', () => {
+          it('should return true if given a key of an enabled feature flag', () => {
+            window.mtz.featureFlags = [validFeatureFlag];
+            element.__loadFeatureFlags();
+
+            expect(element.featureFlagIsEnabled(validFeatureFlag.key)).to.be.true;
+          });
+
+          it('should return false if given a key of a disabled feature flag', () => {
+            window.mtz.featureFlags = [validFeatureFlagNotEnabled];
+            element.__loadFeatureFlags();
+
+            expect(element.featureFlagIsEnabled(validFeatureFlagNotEnabled.key)).to.be.false;
+          });
+
+          it('should console.error and then return false if given a key that doesn\'t exist', () => {
+            element.__loadFeatureFlags();
+            const featureFlagKey = 'doesnotexist';
+            expect(element.featureFlagIsEnabled(featureFlagKey)).to.be.false;
+            expect(console.warn).calledWithMatch(`No feature flag exists with key: ${featureFlagKey}`);
+          });
+        });
+
+        describe("__featureFlagErrors", () => {
+          it('will validate feature flags to make sure they contain a key property', () => {
+            window.mtz.featureFlags = [invalidFeatureFlag1];
+            element.__loadFeatureFlags();
+            const validationError = element.__featureFlagErrors[0];
+
+            expect(validationError.messages).to.include('Flag is missing valid \'key\' property.')
+            expect(validationError.object).to.eql(invalidFeatureFlag1);
+          });
+
+          it('will validate key property is a string', () => {
+            window.mtz.featureFlags = [invalidFeatureFlag2];
+            element.__loadFeatureFlags();
+            const validationError = element.__featureFlagErrors[0];
+
+            expect(validationError.messages).to.include('Flag\'s \'key\' property must return a string.');
+            expect(validationError.object).to.eql(invalidFeatureFlag2);
+          });
+
+          it('will enabled property exists', () => {
+            window.mtz.featureFlags = [invalidFeatureFlag3];
+            element.__loadFeatureFlags();
+            const validationError = element.__featureFlagErrors[0];
+
+            expect(validationError.messages).to.include('Flag is missing valid \'enabled\' property.');
+            expect(validationError.object).to.eql(invalidFeatureFlag3);
+          });
+
+          it('will validate enabled property is a boolean', () => {
+            window.mtz.featureFlags = [invalidFeatureFlag4];
+            element.__loadFeatureFlags();
+            const validationError = element.__featureFlagErrors[0];
+
+            expect(validationError.messages).to.include('Flag\'s \'enabled\' property must return a boolean.');
+            expect(validationError.object).to.eql(invalidFeatureFlag4);
+          });
+
+          it('will call console.error on any featureFlagErrors', () => {
+            window.mtz.featureFlags = [invalidFeatureFlag1, invalidFeatureFlag2, invalidFeatureFlag3, invalidFeatureFlag4];
+            element.__loadFeatureFlags();
+
+            expect(element.__featureFlagErrors).to.have.lengthOf(4);
+            expect(console.error).calledWithMatch(element.__featureFlagErrors);
+          });
+
+        });
+      });
+    </script>
+
+  </body>
+</html>

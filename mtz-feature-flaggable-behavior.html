@@ -1,0 +1,88 @@
+<link rel="import" href="../polymer/polymer.html">
+
+<script>
+  /**
+   * `Use Mtz.FeatureFlaggableBehavior` to implement optional behavior in
+   * an element that reads in feature flags set on the `window` object
+   * to determine what to do. 
+   *
+   * @demo demo/index.html
+   * @polymerBehavior
+   */
+
+  window.mtz = window.mtz || {};
+
+  window.mtz.FeatureFlaggableBehavior = {
+    properties: {
+      /**
+       * keyed object of all the feature flags read in from `window`
+       */
+      featureFlags: {
+        type: Array,
+        value: () => {
+          return [];
+        }
+      },
+      /**
+       * object containing any validation errors for given feature flags
+       */
+      __featureFlagErrors: {
+        type: Array,
+        value: () => {
+          return [];
+        }
+      }
+    },
+    attached: function() {
+      this.__loadFeatureFlags();
+    },
+    featureFlagIsEnabled(key) {
+      const flag = this.featureFlags.find((flag) => flag.key === key);
+
+      if (typeof flag === 'undefined') {
+        console.warn(`No feature flag exists with key: ${key}`);
+        return false;
+      } 
+
+      return flag.enabled;
+    },
+    __loadFeatureFlags(flags) {
+      const featureFlags = flags || window.mtz.featureFlags;
+
+      if (!featureFlags) return;
+
+      featureFlags.forEach(flag => {
+        const validationMessages = [];
+
+        if (!flag.hasOwnProperty('key')) {
+          validationMessages.push('Flag is missing valid \'key\' property.')
+        }
+
+        if (flag.hasOwnProperty('key') && !(typeof flag.key === 'string')) {
+          validationMessages.push('Flag\'s \'key\' property must return a string.')
+        }
+
+        if (flag.hasOwnProperty('key') && (typeof flag.key === 'string') && !flag.key.length) {
+          validationMessages.push('Flag\'s \'key\' property must return a string.')
+        }
+
+        if (!flag.hasOwnProperty('enabled')) {
+          validationMessages.push('Flag is missing valid \'enabled\' property.');
+        }
+
+        if (flag.hasOwnProperty('enabled') && !(typeof flag.enabled === 'boolean')) {
+          validationMessages.push('Flag\'s \'enabled\' property must return a boolean.');
+        }
+
+        validationMessages.length
+          ? this.__featureFlagErrors.push({
+              messages: validationMessages,
+              object: flag
+            })
+          : this.featureFlags.push(flag);
+      });
+
+      if (this.__featureFlagErrors.length) console.error(this.__featureFlagErrors);
+    }
+  };
+</script>
